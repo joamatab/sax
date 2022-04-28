@@ -84,12 +84,11 @@ def circuit(
 
     def _circuit(**settings: Settings) -> SType:
         settings = merge_dicts(_settings, settings)
-        global_settings = {}
-        for k in list(settings.keys()):
-            if k in _netlist["instances"]:
-                continue
-            global_settings[k] = settings.pop(k)
-        if global_settings:
+        if global_settings := {
+            k: settings.pop(k)
+            for k in list(settings.keys())
+            if k not in _netlist["instances"]
+        }:
             settings = cast(
                 Dict[str, Settings], update_settings(settings, **global_settings)
             )
@@ -99,8 +98,7 @@ def circuit(
             instances[name] = cast(
                 SType, maybe_multimode(model(**settings.get(name, {})))
             )
-        S = evaluate_circuit(instances, connections, ports)
-        return S
+        return evaluate_circuit(instances, connections, ports)
 
     settings = {
         name: get_settings(cast(Model, _models[model]))
@@ -126,7 +124,7 @@ def circuit_from_netlist(
     instances = netlist["instances"]
     connections = netlist["connections"]
     ports = netlist["ports"]
-    _circuit = circuit(
+    return circuit(
         instances=instances,
         connections=connections,
         ports=ports,
@@ -136,7 +134,6 @@ def circuit_from_netlist(
         backend=backend,
         default_models=default_models,
     )
-    return _circuit
 
 # Cell
 def circuit_from_yaml(
@@ -162,7 +159,7 @@ def circuit_from_yaml(
             much faster for large circuits but cannot be jitted or used for autograd.
     """
     netlist, models = netlist_from_yaml(yaml=yaml, models=models, settings=settings)
-    circuit = circuit_from_netlist(
+    return circuit_from_netlist(
         netlist=netlist,
         models=models,
         modes=modes,
@@ -170,7 +167,6 @@ def circuit_from_yaml(
         backend=backend,
         default_models=default_models,
     )
-    return circuit
 
 # Cell
 def circuit_from_gdsfactory(
@@ -183,7 +179,7 @@ def circuit_from_gdsfactory(
     default_models=None,
 ) -> Model:
     """Load a sax circuit from a GDSFactory component"""
-    circuit = circuit_from_netlist(
+    return circuit_from_netlist(
         component.get_netlist(),
         models=models,
         modes=modes,
@@ -191,4 +187,3 @@ def circuit_from_gdsfactory(
         backend=backend,
         default_models=default_models,
     )
-    return circuit

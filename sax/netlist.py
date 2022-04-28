@@ -112,13 +112,7 @@ def _instance_from_instance(
 ) -> Tuple[Instance, Models]:
     default_models = default_sax_models if default_models is None else default_models
     component = clean_string(instance["component"])
-    if component not in models:
-        if component not in default_models:
-            raise ValueError(
-                f"Error constructing netlist. Component '{component}' not found."
-            )
-        model = default_models[component]
-    else:
+    if component in models:
         model = models[component]
         if isinstance(model, str):
             if model not in default_models:
@@ -126,6 +120,12 @@ def _instance_from_instance(
                     f"Error constructing netlist. Component '{model}' not found."
                 )
             model = default_models[model]
+    elif component not in default_models:
+        raise ValueError(
+            f"Error constructing netlist. Component '{component}' not found."
+        )
+    else:
+        model = default_models[component]
     if not callable(model):  # Model or ModelFactory
         raise ValueError(
             f"Error constructing netlist. Model for component '{component}' is not callable."
@@ -182,7 +182,7 @@ def _model_operations(
     _models = {}
     for component, model in models.items():
         if isinstance(model, str):
-            if not model in default_models:
+            if model not in default_models:
                 raise ValueError(f"Could not find model {model}.")
             model = default_models[model]
 
@@ -202,7 +202,7 @@ def _model_operations(
             )
 
         if isinstance(model["model"], str):
-            if not model["model"] in default_models:
+            if model["model"] not in default_models:
                 raise ValueError(f"Could not find model {model['model']}.")
             model["model"] = default_models[cast(str, model["model"])]
 
@@ -222,11 +222,12 @@ def _split_global_settings(
 ) -> Tuple[Settings, Dict[str, ComplexFloat]]:
     if settings:
         override_settings = cast(Dict[str, Settings], copy_settings(settings))
-        global_settings: Dict[str, ComplexFloat] = {}
-        for k in list(override_settings.keys()):
-            if k in instance_names:
-                continue
-            global_settings[k] = cast(ComplexFloat, try_float(override_settings.pop(k)))
+        global_settings: Dict[str, ComplexFloat] = {
+            k: cast(ComplexFloat, try_float(override_settings.pop(k)))
+            for k in list(override_settings.keys())
+            if k not in instance_names
+        }
+
     else:
         override_settings: Dict[str, Settings] = {}
         global_settings: Dict[str, ComplexFloat] = {}
@@ -234,14 +235,14 @@ def _split_global_settings(
 
 
 def _enumerate_portrange(s):
-    if not ":" in s:
+    if ":" not in s:
         return [s]
     idx1, idx2 = s.split(":")
     s1 = re.sub("[0-9]*", "", idx1)
     idx1 = int(re.sub("[^0-9]*", "", idx1))
     s2 = re.sub("[0-9]*", "", idx2)
     idx2 = int(re.sub("[^0-9]*", "", idx2))
-    if s1 != s2 and s2 != "":
+    if s1 != s2 != "":
         raise ValueError(
             "Cannot enumerate portrange {s}, string portion of port differs."
         )

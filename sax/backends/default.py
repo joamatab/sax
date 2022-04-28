@@ -28,9 +28,11 @@ def evaluate_circuit(
 
     block_diag = {}
     for name, S in instances.items():
-        block_diag.update(
-            {(f"{name},{p1}", f"{name},{p2}"): v for (p1, p2), v in sdict(S).items()}
-        )
+        block_diag |= {
+            (f"{name},{p1}", f"{name},{p2}"): v
+            for (p1, p2), v in sdict(S).items()
+        }
+
 
     sorted_connections = sorted(connections.items(), key=_connections_sort_key)
     all_connected_instances = {k: {k} for k in instances}
@@ -52,7 +54,7 @@ def evaluate_circuit(
             if p.startswith(f"{instance},")
         )
 
-        block_diag.update(_interconnect_ports(block_diag, current_ports, k, l))
+        block_diag |= _interconnect_ports(block_diag, current_ports, k, l)
 
         for i, j in list(block_diag.keys()):
             is_connected = i == k or i == l or j == k or j == l
@@ -60,12 +62,11 @@ def evaluate_circuit(
             if is_connected and not is_in_output_ports:
                 del block_diag[i, j]  # we're no longer interested in these port combinations
 
-    circuit_sdict: SDict = {
+    return {
         (reversed_ports[i], reversed_ports[j]): v
         for (i, j), v in block_diag.items()
         if i in reversed_ports and j in reversed_ports
     }
-    return circuit_sdict
 
 
 def _connections_sort_key(connection):
@@ -111,10 +112,9 @@ def _calculate_interconnected_value(vij, vik, vil, vkj, vkk, vkl, vlj, vlk, vll)
           Filipsson, Gunnar. "A new general computer algorithm for S-matrix calculation
           of interconnected multiports." 11th European Microwave Conference. IEEE, 1981.
     """
-    result = vij + (
+    return vij + (
         vkj * vil * (1 - vlk)
         + vlj * vik * (1 - vkl)
         + vkj * vll * vik
         + vlj * vkk * vil
     ) / ((1 - vkl) * (1 - vlk) - vkk * vll)
-    return result

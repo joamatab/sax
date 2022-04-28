@@ -21,8 +21,12 @@ from textwrap import dedent
 @patch_to(FrozenDict)
 def __repr__(self):  # type: ignore
     _dict = lambda d: dict(
-        {k: (v if not isinstance(v, self.__class__) else dict(v)) for k, v in d.items()}
+        {
+            k: dict(v) if isinstance(v, self.__class__) else v
+            for k, v in d.items()
+        }
     )
+
     return f"{self.__class__.__name__}({dict.__repr__(_dict(self))})"
 
 # Internal Cell
@@ -44,4 +48,4 @@ def __repr__(self):  # type: ignore
         s = s.replace("DeviceArray(", "      array(")
         s = re.sub(r", dtype=.*[,)]", "", s)
         s = re.sub(r" weak_type=.*[,)]", "", s)
-        return dedent(s)+")"
+        return f"{dedent(s)})"

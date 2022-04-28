@@ -198,5 +198,4 @@ def load_nn_dense(
     y_norm_dict = load_nn_weights_json(y_norm_path)
     x_norm = norm(x_norm_dict["mean"], x_norm_dict["std"])
     y_norm = norm(y_norm_dict["mean"], y_norm_dict["std"])
-    partial_dense = _PartialDense(weights, x_norm, y_norm, input_names, output_names)
-    return partial_dense
+    return _PartialDense(weights, x_norm, y_norm, input_names, output_names)

@@ -31,16 +31,15 @@ def straight(
     """a simple straight waveguide model"""
     dwl = wl - wl0
     dneff_dwl = (ng - neff) / wl0
-    neff = neff - dwl * dneff_dwl
+    neff -= dwl * dneff_dwl
     phase = 2 * jnp.pi * neff * length / wl
     amplitude = jnp.asarray(10 ** (-loss * length / 20), dtype=complex)
     transmission =  amplitude * jnp.exp(1j * phase)
-    sdict = reciprocal(
+    return reciprocal(
         {
             ("in0", "out0"): transmission,
         }
     )
-    return sdict
 
 # Cell
 
@@ -48,7 +47,7 @@ def coupler(*, coupling: float = 0.5) -> SDict:
     """a simple coupler model"""
     kappa = coupling ** 0.5
     tau = (1 - coupling) ** 0.5
-    sdict = reciprocal(
+    return reciprocal(
         {
             ("in0", "out0"): tau,
             ("in0", "out1"): 1j * kappa,
@@ -56,7 +55,6 @@ def coupler(*, coupling: float = 0.5) -> SDict:
             ("in1", "out1"): tau,
         }
     )
-    return sdict
 
 # Internal Cell
 
@@ -70,16 +68,14 @@ def _validate_ports(ports, num_inputs, num_outputs, diagonal) -> Tuple[Tuple[str
         input_ports = [f"in{i}" for i in range(num_inputs)]
         output_ports = [f"out{i}" for i in range(num_outputs)]
     else:
-        if num_inputs is not None:
-            if num_outputs is None:
-                raise ValueError(
-                    "if num_inputs is given, num_outputs should be given as well."
-                )
-        if num_outputs is not None:
-            if num_inputs is None:
-                raise ValueError(
-                    "if num_outputs is given, num_inputs should be given as well."
-                )
+        if num_inputs is not None and num_outputs is None:
+            raise ValueError(
+                "if num_inputs is given, num_outputs should be given as well."
+            )
+        if num_outputs is not None and num_inputs is None:
+            raise ValueError(
+                "if num_outputs is given, num_inputs should be given as well."
+            )
         if num_inputs is not None and num_outputs is not None:
             if num_inputs + num_outputs != len(ports):
                 raise ValueError("num_inputs + num_outputs != len(ports)")
@@ -90,11 +86,10 @@ def _validate_ports(ports, num_inputs, num_outputs, diagonal) -> Tuple[Tuple[str
             num_inputs = len(input_ports)
             num_outputs = len(output_ports)
 
-    if diagonal:
-        if num_inputs != num_outputs:
-            raise ValueError(
-                "Can only have a diagonal passthru if number of input ports equals the number of output ports!"
-            )
+    if diagonal and num_inputs != num_outputs:
+        raise ValueError(
+            "Can only have a diagonal passthru if number of input ports equals the number of output ports!"
+        )
     return input_ports, output_ports, num_inputs, num_outputs
 
 # Cell
@@ -253,6 +248,4 @@ models = {
 }
 
 def get_models(copy: bool=True):
-    if copy:
-        return {**models}
-    return models
+    return {**models} if copy else models

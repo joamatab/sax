@@ -51,8 +51,7 @@ def dense(
     x = normalize(x, mean=x_mean, std=x_std)
     for i in range(len([w for w in weights if w.startswith("w")])):
         x = activation(x @ weights[f"w{i}"] + weights.get(f"b{i}", 0.0))
-    y = denormalize(x, mean=y_mean, std=y_std)
-    return y
+    return denormalize(x, mean=y_mean, std=y_std)
 
 # Cell
 def generate_dense_weights(
@@ -68,7 +67,7 @@ def generate_dense_weights(
         key = jax.random.PRNGKey(key)
     assert isinstance(key, jnp.ndarray)
 
-    sizes = tuple(s for s in sizes)
+    sizes = tuple(sizes)
     if input_names:
         arr = preprocess(*jnp.ones(len(input_names)))
         assert isinstance(arr, jnp.ndarray)

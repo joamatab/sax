@@ -182,11 +182,11 @@ def is_model_factory(model: Any) -> bool:
 # Cell
 def validate_model(model: Callable):
     """Validate the parameters of a model"""
-    positional_arguments = []
-    for param in inspect.signature(model).parameters.values():
-        if param.default is inspect.Parameter.empty:
-            positional_arguments.append(param.name)
-    if positional_arguments:
+    if positional_arguments := [
+        param.name
+        for param in inspect.signature(model).parameters.values()
+        if param.default is inspect.Parameter.empty
+    ]:
         raise ValueError(
             f"model '{model}' takes positional arguments {', '.join(positional_arguments)} "
             "and hence is not a valid SAX Model! A SAX model should ONLY take keyword arguments (or no arguments at all)."
@@ -195,20 +195,18 @@ def validate_model(model: Callable):
 # Cell
 def is_instance(instance: Any) -> bool:
     """check if a dictionary is an instance"""
-    if not isinstance(instance, dict):
-        return False
-    return "component" in instance
+    return "component" in instance if isinstance(instance, dict) else False
 
 # Cell
 def is_netlist(netlist: Any) -> bool:
     """check if a dictionary is a netlist"""
     if not isinstance(netlist, dict):
         return False
-    if not "instances" in netlist:
+    if "instances" not in netlist:
         return False
-    if not "connections" in netlist:
+    if "connections" not in netlist:
         return False
-    if not "ports" in netlist:
+    if "ports" not in netlist:
         return False
     return True
 
@@ -223,7 +221,7 @@ def is_singlemode(S: Any) -> bool:
     if not is_stype(S):
         return False
     ports = _get_ports(S)
-    return not any(("@" in p) for p in ports)
+    return all("@" not in p for p in ports)
 
 def _get_ports(S: SType):
     if is_sdict(S):

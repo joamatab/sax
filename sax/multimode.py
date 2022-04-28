@@ -100,10 +100,11 @@ def _multimode_scoo(scoo: SCoo, modes: Tuple[str, ...] = ("te", "tm")) -> SCoo:
     Si, Sj, Sx, port_map = scoo
     num_ports = len(port_map)
     mode_map = (
-        {mode: i for i, mode in enumerate(modes)}
-        if not isinstance(modes, dict)
-        else cast(Dict, modes)
+        cast(Dict, modes)
+        if isinstance(modes, dict)
+        else {mode: i for i, mode in enumerate(modes)}
     )
+
 
     _mode_combinations = mode_combinations(modes)
 
@@ -128,10 +129,11 @@ def _multimode_sdense(sdense, modes=("te", "tm")):
     Sx, port_map = sdense
     num_ports = len(port_map)
     mode_map = (
-        {mode: i for i, mode in enumerate(modes)}
-        if not isinstance(modes, dict)
-        else modes
+        modes
+        if isinstance(modes, dict)
+        else {mode: i for i, mode in enumerate(modes)}
     )
+
 
     Sx_m = block_diag(*(Sx for _ in modes))
 

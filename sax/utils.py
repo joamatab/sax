@@ -53,11 +53,9 @@ def block_diag(*arrs: Array) -> Array:
             raise ValueError("given arrays are not square.")
         N += n
 
-    block_diag = jax.vmap(jsp.linalg.block_diag, in_axes=0, out_axes=0)(
+    return jax.vmap(jsp.linalg.block_diag, in_axes=0, out_axes=0)(
         *(arr.reshape(-1, arr.shape[-2], arr.shape[-1]) for arr in arrs)
     ).reshape(*batch_shape, N, N)
-
-    return block_diag
 
 # Cell
 
@@ -68,7 +66,7 @@ def clean_string(s: str) -> str:
     s = s.replace("-", "m")  # minus
     s = re.sub("[^0-9a-zA-Z]", "_", s)
     if s[0] in "0123456789":
-        s = "_" + s
+        s = f"_{s}"
     return s
 
 # Cell
@@ -79,13 +77,10 @@ def copy_settings(settings: Settings) -> Settings:
 
 def validate_settings(settings: Settings) -> Settings:
     """Validate a parameter dictionary"""
-    _settings = {}
-    for k, v in settings.items():
-        if isinstance(v, dict):
-            _settings[k] = validate_settings(v)
-        else:
-            _settings[k] = try_float(v)
-    return _settings
+    return {
+        k: validate_settings(v) if isinstance(v, dict) else try_float(v)
+        for k, v in settings.items()
+    }
 
 def try_float(f: Any) -> Any:
     """try converting an object to float, return unchanged object on fail"""
@@ -121,18 +116,15 @@ def unflatten_dict(dic, sep=","):
     """unflatten a flattened dictionary """
 
     # from: https://gist.github.com/fmder/494aaa2dd6f8c428cede
-    items = dict()
+    items = {}
 
     for k, v in dic.items():
         keys = k.split(sep)
         sub_items = items
         for ki in keys[:-1]:
-            if ki in sub_items:
-                sub_items = sub_items[ki]
-            else:
-                sub_items[ki] = dict()
-                sub_items = sub_items[ki]
-
+            if ki not in sub_items:
+                sub_items[ki] = {}
+            sub_items = sub_items[ki]
         sub_items[keys[-1]] = v
 
     return items
@@ -190,10 +182,11 @@ def get_settings(model: Union[Model, ModelFactory]) -> Settings:
     signature = inspect.signature(model)
 
     settings: Settings = {
-        k: (v.default if not isinstance(v, dict) else v)
+        k: v if isinstance(v, dict) else v.default
         for k, v in signature.parameters.items()
         if v.default is not inspect.Parameter.empty
     }
+
 
     # make sure an inplace operation of resulting dict does not change the
     # circuit parameters themselves
@@ -207,11 +200,11 @@ def grouped_interp(wl: Float, wls: Float, phis: Float) -> Float:
     # make sure values between -pi and pi
     phis = cast(Array, jnp.asarray(phis)) % (2 * jnp.pi)
     phis = jnp.where(phis > jnp.pi, phis - 2 * jnp.pi, phis)
-    if not wls.ndim == 1:
+    if wls.ndim != 1:
         raise ValueError("grouped_interp: wls should be a 1D array")
-    if not phis.ndim == 1:
+    if phis.ndim != 1:
         raise ValueError("grouped_interp: wls should be a 1D array")
-    if not wls.shape == phis.shape:
+    if wls.shape != phis.shape:
         raise ValueError("grouped_interp: wls and phis shape does not match")
     return _grouped_interp(wl.reshape(-1), wls, phis).reshape(*wl.shape)
 
@@ -451,10 +444,7 @@ def update_settings(
             if isinstance(v, dict):
                 _settings[k] = update_settings(v, **kwargs)
             else:
-                if k in kwargs:
-                    _settings[k] = try_float(kwargs[k])
-                else:
-                    _settings[k] = try_float(v)
+                _settings[k] = try_float(kwargs[k]) if k in kwargs else try_float(v)
     else:
         for k, v in settings.items():
             if isinstance(v, dict):
@@ -485,7 +475,7 @@ def validate_not_mixedmode(S: SType):
 def validate_multimode(S: SType, modes=("te", "tm")) -> None:
     """validate that an stype is multimode and that the given modes are present."""
     try:
-        current_modes = set(p.split("@")[1] for p in get_ports(S))
+        current_modes = {p.split("@")[1] for p in get_ports(S)}
     except IndexError:
         raise ValueError("The given stype is not multimode.")
     for mode in modes:
@@ -501,7 +491,7 @@ def validate_sdict(sdict: Any) -> None:
     if not isinstance(sdict, dict):
         raise ValueError("An SDict should be a dictionary.")
     for ports in sdict:
-        if not isinstance(ports, tuple) and not len(ports) == 2:
+        if not isinstance(ports, tuple) and len(ports) != 2:
             raise ValueError(f"SDict keys should be length-2 tuples. Got {ports}")
         p1, p2 = ports
         if not isinstance(p1, str) or not isinstance(p2, str):
